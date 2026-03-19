@@ -23,6 +23,7 @@ interface DraftState {
   threadPolicy: ThreadPolicy
   isEnabled: boolean
   botToken: string
+  botTokenTouched: boolean
 }
 
 const THREAD_POLICY_OPTIONS: { value: ThreadPolicy; label: string; description: string }[] = [
@@ -50,6 +51,7 @@ function draftFromPayload(payload: SlackSettingsPayload): DraftState {
     threadPolicy: payload.thread_policy,
     isEnabled: payload.is_enabled,
     botToken: '',
+    botTokenTouched: false,
   }
 }
 
@@ -85,12 +87,19 @@ export function AgentSlackSettingsScreen({ agentId, slackSettingsUrl, testUrl }:
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!activeDraft) throw new Error('No draft')
+      const tokenPayload: Record<string, string | boolean> = {}
+      if (activeDraft.botToken) {
+        tokenPayload.bot_token = activeDraft.botToken
+      } else if (activeDraft.botTokenTouched && data?.has_bot_token) {
+        // User explicitly cleared the field while a token existed
+        tokenPayload.clear_bot_token = true
+      }
       return saveSlackSettings(slackSettingsUrl, {
         workspace_id: activeDraft.workspaceId,
         channel_id: activeDraft.channelId,
         thread_policy: activeDraft.threadPolicy,
         is_enabled: activeDraft.isEnabled,
-        ...(activeDraft.botToken ? { bot_token: activeDraft.botToken } : {}),
+        ...tokenPayload,
       })
     },
     onSuccess: (result) => {
@@ -153,7 +162,7 @@ export function AgentSlackSettingsScreen({ agentId, slackSettingsUrl, testUrl }:
             type="password"
             placeholder={data.has_bot_token ? '(token set — enter new value to replace)' : 'xoxb-...'}
             value={activeDraft.botToken}
-            onChange={(e) => updateDraft((d) => ({ ...d, botToken: e.currentTarget.value }))}
+            onChange={(e) => updateDraft((d) => ({ ...d, botToken: e.currentTarget.value, botTokenTouched: true }))}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>

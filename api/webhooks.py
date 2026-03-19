@@ -669,6 +669,25 @@ def slack_events_webhook(request):
             logger.warning("Endpoint %s is not associated with a usable agent/user.", channel_address)
             return HttpResponse(status=200)
 
+        # Check that Slack is enabled for this agent
+        from api.models import AgentSlackConfig
+        try:
+            slack_config = endpoint.slack_config
+            if not slack_config.is_enabled:
+                logger.info(
+                    "Discarding Slack message to agent '%s' — Slack is disabled.",
+                    agent.name,
+                )
+                lookup_span.add_event("Slack - Disabled", {"agent_id": str(agent.id)})
+                return HttpResponse(status=200)
+        except AgentSlackConfig.DoesNotExist:
+            logger.info(
+                "Discarding Slack message to agent '%s' — no Slack config.",
+                agent.name,
+            )
+            lookup_span.add_event("Slack - No Config", {"agent_id": str(agent.id)})
+            return HttpResponse(status=200)
+
         if not agent.is_sender_whitelisted(CommsChannel.SLACK, sender_user_id):
             logger.info(
                 "Discarding Slack message from non-whitelisted sender '%s' to agent '%s'.",

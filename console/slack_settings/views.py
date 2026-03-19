@@ -33,9 +33,12 @@ def _get_or_create_slack_endpoint(agent: PersistentAgent) -> PersistentAgentComm
     ).first()
     if endpoint:
         return endpoint
+    # Use a unique placeholder address so the per-channel unique constraint
+    # doesn't collide across agents that haven't configured Slack yet.
+    placeholder = f"slack:unconfigured#{agent.id}"
     return PersistentAgentCommsEndpoint.objects.create(
         channel=CommsChannel.SLACK,
-        address="",
+        address=placeholder,
         owner_agent=agent,
         is_primary=True,
     )
